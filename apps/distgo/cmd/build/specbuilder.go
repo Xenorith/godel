@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/palantir/pkg/matcher"
 	"github.com/palantir/pkg/pkgpath"
@@ -46,7 +47,19 @@ func RequiresBuild(specWithDeps params.ProductBuildSpecWithDeps, osArchs cmd.OSA
 		for _, currOSArch := range currSpec.Build.OSArchs {
 			if osArchs.Matches(currOSArch) {
 				if fi, err := os.Stat(paths[currOSArch]); err == nil {
-					if goFiles, err := imports.AllFiles(path.Join(currSpec.ProjectDir, currSpec.Build.MainPkg)); err == nil {
+					importPath := path.Join(currSpec.ProjectDir, currSpec.Build.MainPkg)
+					containsSrc := false
+					for _, dir := range strings.Split(importPath, string(os.PathSeparator)) {
+						if dir == "src" {
+							containsSrc = true
+							break
+						}
+					}
+					if !containsSrc {
+						importPath = path.Join(currSpec.ProjectDir, "src", currSpec.Build.MainPkg)
+					}
+
+					if goFiles, err := imports.AllFiles(importPath); err == nil {
 						if newerThan, err := goFiles.NewerThan(fi); err == nil && !newerThan {
 							// if the build artifact for the product already exists and none of the source files for the
 							// product are newer than the build artifact, consider spec up-to-date
